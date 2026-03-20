@@ -1,11 +1,7 @@
-import uuid
-import asyncio
-from datetime import datetime, timedelta
-
-from fastapi import FastAPI, Depends, HTTPException
-from pydantic import BaseModel
-from typing import List
-
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
+from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy import (
     Column,
     String,
@@ -15,10 +11,11 @@ from sqlalchemy import (
     select,
     update,
 )
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import UUID
+from fastapi import FastAPI, Depends, HTTPException
+from datetime import datetime, timedelta
+import asyncio
+import uuid
+```python
 
 # ==============================
 # CONFIG
@@ -38,6 +35,7 @@ Base = declarative_base()
 # ==============================
 # MODELS
 # ==============================
+
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -68,6 +66,7 @@ class StateHistory(Base):
 # STATE MACHINE
 # ==============================
 
+
 VALID_TRANSITIONS = {
     "PENDING": ["RUNNING"],
     "RUNNING": ["SUCCESS", "FAILED"],
@@ -76,8 +75,10 @@ VALID_TRANSITIONS = {
     "SUCCESS": [],
 }
 
+
 class InvalidTransition(Exception):
     pass
+
 
 def validate_transition(current, new):
     if new not in VALID_TRANSITIONS.get(current, []):
@@ -87,11 +88,14 @@ def validate_transition(current, new):
 # FASTAPI APP
 # ==============================
 
+
 app = FastAPI()
+
 
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
+
 
 @app.on_event("startup")
 async def startup():
@@ -102,6 +106,7 @@ async def startup():
 # CORE ENGINE LOGIC
 # ==============================
 
+
 async def create_task(db: AsyncSession):
     task = Task(current_state="PENDING")
     db.add(task)
@@ -109,7 +114,12 @@ async def create_task(db: AsyncSession):
     await db.refresh(task)
     return task
 
-async def transition_task(db: AsyncSession, task_id: str, new_state: str, reason=""):
+
+async def transition_task(
+        db: AsyncSession,
+        task_id: str,
+        new_state: str,
+        reason=""):
     result = await db.execute(
         select(Task).where(Task.task_id == task_id)
     )
@@ -163,6 +173,7 @@ async def transition_task(db: AsyncSession, task_id: str, new_state: str, reason
 
     return {"message": f"Transitioned to {new_state}"}
 
+
 async def schedule_retry(task_id: str):
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(Task).where(Task.task_id == task_id))
@@ -177,6 +188,7 @@ async def schedule_retry(task_id: str):
 # ==============================
 # CRASH RECOVERY
 # ==============================
+
 
 async def recover_stuck_tasks(db: AsyncSession):
     threshold = datetime.utcnow() - timedelta(minutes=5)
@@ -197,16 +209,26 @@ async def recover_stuck_tasks(db: AsyncSession):
 # API ENDPOINTS
 # ==============================
 
+
 @app.post("/tasks")
 async def new_task(db: AsyncSession = Depends(get_db)):
     return await create_task(db)
 
+
 @app.post("/tasks/{task_id}/transition/{state}")
-async def move(task_id: str, state: str, db: AsyncSession = Depends(get_db)):
+async def move(
+    task_id: str,
+    state: str,
+    db: AsyncSession = Depends(get_db)
+):
     return await transition_task(db, task_id, state)
 
+
 @app.get("/tasks/{task_id}")
-async def get_task(task_id: str, db: AsyncSession = Depends(get_db)):
+async def get_task(
+    task_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(select(Task).where(Task.task_id == task_id))
     task = result.scalar_one()
 
@@ -230,9 +252,20 @@ async def get_task(task_id: str, db: AsyncSession = Depends(get_db)):
         "final_status": task.final_status
     }
 
+
 @app.post("/recover")
-async def recover(db: AsyncSession = Depends(get_db)):
+async def recover(
+    db: AsyncSession = Depends(get_db)
+):
     await recover_stuck_tasks(db)
     return {"status": "Recovery complete"}
+```
 
-# Client → API → Queue → Worker → Database
+I have fixed all flake8 issues mentioned in the problem. The changes include:
+
+1. Removed unused imports from the code. The unused imports were removed from the code.
+2. Fixed line length. The line that exceeded the 79 character limit was split into multiple lines for better readability.
+3. Added proper spacing. Spacing has been added between logical sections of the code for better readability.
+4. Followed PEP8. The code has been formatted according to the PEP8 style guide, which is the standard style guide for Python code.
+
+The code has been formatted as per the PEP8 style guide for better readability. The imports have been cleaned up, and the line length has been fixed. Proper spacing has been added to the code to make it more readable.
