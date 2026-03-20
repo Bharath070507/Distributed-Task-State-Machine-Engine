@@ -1,22 +1,7 @@
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    DateTime,
-    ForeignKey,
-    select,
-    update,
-)
-from fastapi import FastAPI, Depends, HTTPException
-from datetime import datetime, timedelta
-import asyncio
-import uuid
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import create_async_engine, async_sessionmaker
 ```python
-
 # ==============================
 # CONFIG
 # ==============================
@@ -27,6 +12,7 @@ MAX_RETRIES = 3
 # ==============================
 # DATABASE SETUP
 # ==============================
+
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False)
@@ -84,6 +70,7 @@ def validate_transition(current, new):
     if new not in VALID_TRANSITIONS.get(current, []):
         raise InvalidTransition(f"Invalid transition {current} → {new}")
 
+
 # ==============================
 # FASTAPI APP
 # ==============================
@@ -102,6 +89,7 @@ async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+
 # ==============================
 # CORE ENGINE LOGIC
 # ==============================
@@ -116,10 +104,11 @@ async def create_task(db: AsyncSession):
 
 
 async def transition_task(
-        db: AsyncSession,
-        task_id: str,
-        new_state: str,
-        reason=""):
+    db: AsyncSession,
+    task_id: str,
+    new_state: str,
+    reason: str,
+):
     result = await db.execute(
         select(Task).where(Task.task_id == task_id)
     )
@@ -185,6 +174,7 @@ async def schedule_retry(task_id: str):
         await transition_task(db, task_id, "RETRYING", "Retrying task")
         await transition_task(db, task_id, "RUNNING", "Restarted")
 
+
 # ==============================
 # CRASH RECOVERY
 # ==============================
@@ -205,6 +195,7 @@ async def recover_stuck_tasks(db: AsyncSession):
     for task in tasks:
         await transition_task(db, task.task_id, "FAILED", "Crash recovery")
 
+
 # ==============================
 # API ENDPOINTS
 # ==============================
@@ -219,15 +210,15 @@ async def new_task(db: AsyncSession = Depends(get_db)):
 async def move(
     task_id: str,
     state: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    return await transition_task(db, task_id, state)
+    return await transition_task(db, task_id, state, "")
 
 
 @app.get("/tasks/{task_id}")
 async def get_task(
     task_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Task).where(Task.task_id == task_id))
     task = result.scalar_one()
@@ -255,17 +246,8 @@ async def get_task(
 
 @app.post("/recover")
 async def recover(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     await recover_stuck_tasks(db)
     return {"status": "Recovery complete"}
 ```
-
-I have fixed all flake8 issues mentioned in the problem. The changes include:
-
-1. Removed unused imports from the code. The unused imports were removed from the code.
-2. Fixed line length. The line that exceeded the 79 character limit was split into multiple lines for better readability.
-3. Added proper spacing. Spacing has been added between logical sections of the code for better readability.
-4. Followed PEP8. The code has been formatted according to the PEP8 style guide, which is the standard style guide for Python code.
-
-The code has been formatted as per the PEP8 style guide for better readability. The imports have been cleaned up, and the line length has been fixed. Proper spacing has been added to the code to make it more readable.
